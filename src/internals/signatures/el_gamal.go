@@ -39,11 +39,25 @@ func CreateNew() *ElGamal {
 func (eg *ElGamal) CreateSignature(message int) (r, signature big.Int) {
 
 	key := generateRandom()
-	randomKey := calculateKey(eg.generator, eg.prime, *big.NewInt(key))
+	randomKey := calculateKey(eg.generator, eg.prime, key)
+	prime := big.NewInt(SHARED_PRIME-1)
 
 	hash := eg.hasher.Hash(eg.publicKey, []byte(strconv.Itoa(message)))
-	s := 0 // TODO: Implement the generation of the signature
-	return *randomKey, *s
+	s := big.NewInt(0).Mul(&eg.signatureKey, randomKey)
+	s = s.Sub(&hash, s)
+	kValue := key.Exp(&key, big.NewInt(-1), nil) 
+	s = s.Mul(s,kValue)
+
+	s = s.Mod(s, prime)
+
+	if bigMath.Equals(s, big.NewInt(0)) {
+
+		return eg.CreateSignature(message)
+	} else {
+
+		return *randomKey, *s
+	}
+
 }
 
 func (eg *ElGamal) VerifySignature(signature, randomKey, publicKey big.Int) bool {
@@ -68,12 +82,12 @@ func (eg *ElGamal) VerifySignature(signature, randomKey, publicKey big.Int) bool
 }
 
 // Generates a random integer. However not 0
-func generateRandom() int64 {
+func generateRandom() big.Int {
 	random := rand.Int63()
 	if random == 0 {
-		return 1
+		return generateRandom()
 	} else {
-		return random
+		return *big.NewInt(random)
 	}
 }
 
