@@ -29,11 +29,10 @@ func CreateNew() *ElGamal {
 	prime := big.NewInt(SHARED_PRIME)
 
 	sk := generateRandom()
-	secret := big.NewInt(sk)
-	pk := calculateKey(*generator, *prime, *secret)
+	pk := calculateKey(*generator, *prime, sk)
 	hasher := hashing.CreateNew(hashing.SHA256)
 
-	return &ElGamal{signatureKey: *secret, publicKey: *pk, prime: *prime, generator: *generator, hasher: hasher}
+	return &ElGamal{signatureKey: sk, publicKey: *pk, prime: *prime, generator: *generator, hasher: hasher}
 }
 
 func (eg *ElGamal) CreateSignature(message int) (r, signature big.Int) {
@@ -60,7 +59,7 @@ func (eg *ElGamal) CreateSignature(message int) (r, signature big.Int) {
 
 }
 
-func (eg *ElGamal) VerifySignature(signature, randomKey, publicKey big.Int) bool {
+func (eg *ElGamal) VerifySignature(message int, signature, randomKey, publicKey big.Int) bool {
 	// TODO: Implement the verification signature
 	zero := big.NewInt(0)
 	prime := big.NewInt(SHARED_PRIME-1)
@@ -73,10 +72,16 @@ func (eg *ElGamal) VerifySignature(signature, randomKey, publicKey big.Int) bool
 		return false
 	}
 
-	// hash := eg.hasher.Hash()
+	hash := eg.hasher.Hash(eg.publicKey, []byte(strconv.Itoa(message)))
 
-	// TODO: Implement the signature verification calculation
-	var isSignatureValid bool = false
+	// Perform the arithmetic step in order to check that signature is valid
+	generatedValue := hash.Exp(&eg.generator, &hash, nil)
+	pkRandom := randomKey.Exp(&publicKey, &randomKey, nil)
+	rS := randomKey.Exp(&randomKey, &signature, nil)
+	pkrs := pkRandom.Mul(pkRandom, rS)
+
+
+	var isSignatureValid bool = bigMath.Equals(generatedValue, pkrs)
 
 	return isSignatureValid
 }
