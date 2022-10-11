@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"sec.itu.dk/ex2/internals/crypto/hashing"
+	"sec.itu.dk/ex2/internals/math"
 )
 
 type HashCommitment struct {
@@ -25,5 +26,5 @@ func (hc *HashCommitment) Verify(message, commitment, pk big.Int) bool {
 
 	hashedMessage := hc.hasher.Hash(pk, message.Bytes())
 
-	return hashedMessage.Cmp(&commitment) == 0
+	return math.Equals(&hashedMessage, &commitment)
 }
