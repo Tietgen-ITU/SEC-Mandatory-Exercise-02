@@ -11,11 +11,12 @@ import (
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
 	"sec.itu.dk/ex2/internals/signatures"
+	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
-	serverAddr = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
-	signatureHandler = signatures.CreateNew()
+	serverAddr        = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
+	signatureHandler  = signatures.CreateNew()
 	commitmentHandler = commitments.CreateNew()
 )
 
@@ -28,7 +29,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Could not connect to server!")
 	}
-	
+
 	defer conn.Close()
 
 	client := pb.NewDiceClient(conn)
@@ -44,7 +45,7 @@ func main() {
 /*
 Is the main game loop for the client
 */
-func playDiceGame(pk *big.Int,client *pb.DiceClient, ctx *context.Context) {
+func playDiceGame(pk *big.Int, client *pb.DiceClient, ctx *context.Context) {
 
 	for i := 0; i < 6; i++ {
 
@@ -52,13 +53,7 @@ func playDiceGame(pk *big.Int,client *pb.DiceClient, ctx *context.Context) {
 
 			if serverRoll, serverRollOk := diceRoll(pk, *client, ctx); serverRollOk {
 
-				if clientRoll > serverRoll {
-					fmt.Println("Client won!")
-				} else if clientRoll < serverRoll {
-					fmt.Println("Server won!")
-				} else {
-					fmt.Println("Draw...")
-				}
+				utils.PrintDiceRollWinner(clientRoll, serverRoll)
 			}
 		}
 	}
@@ -67,7 +62,7 @@ func playDiceGame(pk *big.Int,client *pb.DiceClient, ctx *context.Context) {
 /*
 Makes the random dice roll in collaboration with the server
 */
-func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (int, bool) {
+func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
 
 	// Generate commitment key and make dice roll
 	commitmentKey := rand.Int63()
@@ -83,7 +78,7 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (int, boo
 		Value: commit.Int64(),
 		Signature: &pb.Signature{
 			Signature: 0,
-			Random: 0,
+			Random:    0,
 		},
 	})
 
@@ -99,10 +94,10 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (int, boo
 	// Reveal commitment to server
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
 		Value: roll,
-		Key: commitmentKey,
+		Key:   commitmentKey,
 		Signature: &pb.Signature{
 			Signature: 0,
-			Random: 0,
+			Random:    0,
 		},
 	})
 
@@ -120,9 +115,9 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (int, boo
 
 	correctMessage := commitmentHandler.Verify(*serverValue, *serverCommitmentValue, *serverCommitmentKey)
 
-	result := serverRollReveal.Value ^ roll
+	result := utils.CalculateRoll(utils.PartialRoll(serverRollReveal.Value), utils.PartialRoll(roll))
 
-	return int(result), correctMessage
+	return result, correctMessage
 }
 
 /*
