@@ -8,6 +8,6 @@ import (
 
 func main() {
 	var signatureHandler signatures.SignatureHandler[int] = signatures.CreateNew()
-	var _, _ = signatureHandler.CreateSignature(2)
+	var _, _ = signatureHandler.Sign(2)
 	fmt.Println("Hello World!")
 }
