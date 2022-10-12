@@ -9,12 +9,12 @@ import (
 	"sec.itu.dk/ex2/internals/utils"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/signatures"
+	"sec.itu.dk/ex2/internals/crypto"
 )
 
 var (
 	commitmentHandler = commitments.CreateNew()
-	signatureHandler  = signatures.CreateNew()
+	signatureHandler  = crypto.CreateNew()
 )
 
 const RESET_VALUE int = -1

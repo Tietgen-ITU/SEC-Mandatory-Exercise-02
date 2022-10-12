@@ -10,13 +10,13 @@ import (
 	"google.golang.org/grpc"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/signatures"
+	"sec.itu.dk/ex2/internals/crypto"
 	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
 	serverAddr        = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
-	signatureHandler  = signatures.CreateNew()
+	signatureHandler  = crypto.CreateNew()
 	commitmentHandler = commitments.CreateNew()
 )
 
