@@ -1,4 +1,4 @@
-package signatures
+package crypto
 
 import (
 	"math/big"
@@ -94,6 +94,16 @@ func (eg *ElGamal) Verify(message int, signature, randomKey, publicKey big.Int) 
 	return isSignatureValid
 }
 
+func (eg *ElGamal) Encrypt(message int, pk big.Int) big.Int {
+
+	return *new(big.Int)
+}
+
+func (eg *ElGamal) Decrypt(cipher int, pk big.Int) big.Int {
+
+	return *new(big.Int)
+}
+
 // Generates a random integer for the set Z^*_p. This means the set of intergers between 1, 2.. p-1
 func generateRandom() big.Int {
 	random := rand.Int63n(SHARED_PRIME)
@@ -103,7 +113,6 @@ func generateRandom() big.Int {
 		return *big.NewInt(random)
 	}
 }
-
 
 func generateRandomRelativelyPrime(p *big.Int) big.Int {
 

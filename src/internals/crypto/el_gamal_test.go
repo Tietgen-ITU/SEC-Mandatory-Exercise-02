@@ -1,4 +1,4 @@
-package signatures
+package crypto
 
 import (
 	"math/big"
