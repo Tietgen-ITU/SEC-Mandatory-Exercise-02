@@ -26,3 +26,13 @@ func TestMessageSignatureWithWrongKeyVerificationFailed(t *testing.T) {
 		t.Fatalf("Handler returned ok after wrong key inserted")
 	} 
 }
+
+func TestEncryptAndDecryptMessageWithCorrectKeysReturnCorrectMessage(t *testing.T) {
+
+	t.Fatalf("Not implemented")
+}
+
+func TestEncryptAndDecryptMessageWithWrongKeyReturnsIncorrectMessage(t *testing.T) {
+
+	t.Fatalf("Not implemented")
+}
