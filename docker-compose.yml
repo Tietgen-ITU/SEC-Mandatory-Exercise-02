@@ -1,6 +1,6 @@
 version: "3.3"
 services:
-  Bob:
+  bob:
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -8,7 +8,7 @@ services:
       app_net:
         ipv4_address: 172.16.238.3
   
-  Alice:
+  alice:
     depends_on:
       - Bob
     networks:
