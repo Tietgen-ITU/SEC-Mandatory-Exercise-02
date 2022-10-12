@@ -15,7 +15,7 @@ const (
 )
 
 type ElGamal struct {
-	signatureKey big.Int
+	signatureKey big.Int // TODO: Change the name of this key to secret or something that can be used by all
 	publicKey    big.Int
 	prime        big.Int
 	generator    big.Int
@@ -96,12 +96,19 @@ func (eg *ElGamal) Verify(message int, signature, randomKey, publicKey big.Int) 
 
 func (eg *ElGamal) Encrypt(message int, pk big.Int) big.Int {
 
-	return *new(big.Int)
+	bigMsg := big.NewInt(int64(message))
+	commonKey := calculateKey(pk, eg.prime, eg.publicKey)
+	cipher := new(big.Int).Mul(commonKey, bigMsg)
+
+	return *cipher
 }
 
-func (eg *ElGamal) Decrypt(cipher int, pk big.Int) big.Int {
+func (eg *ElGamal) Decrypt(cipher big.Int, pk big.Int) int {
 
-	return *new(big.Int)
+	sharedKey := calculateKey(pk, *big.NewInt(SHARED_PRIME), eg.signatureKey)
+	result := *new(big.Int).Div(&cipher, sharedKey)
+
+	return int(result.Int64())
 }
 
 // Generates a random integer for the set Z^*_p. This means the set of intergers between 1, 2.. p-1
