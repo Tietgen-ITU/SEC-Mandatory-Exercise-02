@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"strconv"
@@ -28,7 +29,7 @@ func CreateNew() *ElGamal {
 	generator := big.NewInt(SHARED_GENERATOR)
 	prime := big.NewInt(SHARED_PRIME)
 
-	sk := generateRandom()
+	sk := generateRandom(SHARED_PRIME)
 	pk := calculateKey(*generator, *prime, sk)
 	hasher := hashing.CreateNew(hashing.SHA256)
 
@@ -46,15 +47,18 @@ func (eg *ElGamal) Sign(message int) (r, signature big.Int) {
 
 	// Get k relatively prime to SHARED_PRIME - 1
 	key := generateRandomRelativelyPrime(primeMinusOne)
+	test := new(big.Int).ModInverse(&key, primeMinusOne)
+
+	fmt.Printf("%s", test.String())
 
 	// Calculate random key a.k.a. r
 	randomKey := calculateKey(eg.generator, eg.prime, key)
 
 	// Calculate s
 	hash := eg.hasher.Hash(eg.publicKey, []byte(strconv.Itoa(message)))
-	sAux1 := new(big.Int).Sub(&hash, big.NewInt(0).Mul(&eg.signatureKey, randomKey))
-	kMulInverse := new(big.Int).ModInverse(&key, &eg.prime) 
-	result := new(big.Int).Mul(sAux1,kMulInverse)
+	sAux1 := new(big.Int).Sub(&hash, new(big.Int).Mul(&eg.signatureKey, randomKey))
+	kMulInverse := new(big.Int).ModInverse(&key, primeMinusOne) 
+	result := new(big.Int).Mul(sAux1,kMulInverse.Mod(kMulInverse, &eg.prime))
 
 	s := new(big.Int).Mod(result, primeMinusOne)
 
@@ -112,10 +116,10 @@ func (eg *ElGamal) Decrypt(cipher big.Int, pk big.Int) int {
 }
 
 // Generates a random integer for the set Z^*_p. This means the set of intergers between 1, 2.. p-1
-func generateRandom() big.Int {
-	random := rand.Int63n(SHARED_PRIME)
+func generateRandom(limit int64) big.Int {
+	random := rand.Int63n(limit)
 	if random <= 0 {
-		return generateRandom()
+		return generateRandom(limit)
 	} else {
 		return *big.NewInt(random)
 	}
@@ -124,10 +128,11 @@ func generateRandom() big.Int {
 func generateRandomRelativelyPrime(p *big.Int) big.Int {
 
 	one := big.NewInt(1)
-	random := generateRandom()
-	gcd := new(big.Int).GCD(nil, nil, &random, p)
 
-	if bigMath.Equals(gcd, one)  {
+	random := generateRandom(p.Int64())
+	gcd := new(big.Int).GCD(nil, nil, &random, p)
+	isRelativePrime := bigMath.Equals(gcd, one)
+	if !isRelativePrime {
 		return generateRandomRelativelyPrime(p)
 	} else {
 		return random
