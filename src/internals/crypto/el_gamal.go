@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strconv"
 
 	"sec.itu.dk/ex2/internals/crypto/hashing"
 	bigMath "sec.itu.dk/ex2/internals/math"
@@ -41,7 +40,7 @@ func (eg *ElGamal) PublicKey() big.Int {
 	return eg.publicKey
 }
 
-func (eg *ElGamal) Sign(message int) (r, signature big.Int) {
+func (eg *ElGamal) Sign(message big.Int) (r, signature big.Int) {
 
 	primeMinusOne := big.NewInt(SHARED_PRIME-1)
 
@@ -55,7 +54,7 @@ func (eg *ElGamal) Sign(message int) (r, signature big.Int) {
 	randomKey := calculateKey(eg.generator, eg.prime, key)
 
 	// Calculate s
-	hash := eg.hasher.Hash(eg.publicKey, []byte(strconv.Itoa(message)))
+	hash := eg.hasher.Hash(eg.publicKey, message.Bytes())
 	sAux1 := new(big.Int).Sub(&hash, new(big.Int).Mul(&eg.signatureKey, randomKey))
 	kMulInverse := new(big.Int).ModInverse(&key, primeMinusOne) 
 	result := new(big.Int).Mul(sAux1,kMulInverse.Mod(kMulInverse, &eg.prime))
@@ -71,7 +70,7 @@ func (eg *ElGamal) Sign(message int) (r, signature big.Int) {
 	}
 }
 
-func (eg *ElGamal) Verify(message int, signature, randomKey, publicKey big.Int) bool {
+func (eg *ElGamal) Verify(message big.Int, signature, randomKey, publicKey big.Int) bool {
 
 	zero := big.NewInt(0)
 	primeMinusOne := big.NewInt(SHARED_PRIME-1)
@@ -84,7 +83,7 @@ func (eg *ElGamal) Verify(message int, signature, randomKey, publicKey big.Int) 
 		return false
 	}
 
-	hash := eg.hasher.Hash(publicKey, []byte(strconv.Itoa(message)))
+	hash := eg.hasher.Hash(publicKey, message.Bytes())
 
 	// Perform the arithmetic step in order to check that signature is valid
 	rS := new(big.Int).Exp(&randomKey, &signature, &eg.prime)
