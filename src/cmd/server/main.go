@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"errors"
-	"math/big"
 	"math/rand"
+	"strconv"
 
-	"sec.itu.dk/ex2/internals/utils"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
+	"sec.itu.dk/ex2/internals/crypto/hashing"
+	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
@@ -18,12 +19,11 @@ var (
 const RESET_VALUE int = -1
 
 type Server struct {
-	pb.UnimplementedKeyExchangeServer
 	pb.UnimplementedDiceServer
 	clientRoll      utils.DiceRoll
-	clientCommit    big.Int
+	clientCommit    []byte
 	commitmentValue utils.PartialRoll
-	commitmentKey   int64
+	commitmentKey   []byte
 }
 
 func main() {
@@ -32,26 +32,26 @@ func main() {
 
 func (s *Server) Commit(ctx context.Context, commit *pb.Commitment) (*pb.Commitment, error) {
 
-	s.clientCommit = *big.NewInt(commit.GetValue())
+	s.clientCommit = commit.GetValue()
 
-	s.commitmentKey = rand.Int63()
+	s.commitmentKey = hashing.GenerateRandomByteArray()
 	s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
 	for s.commitmentValue == 0 {
 		s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
 	}
 
-	c := commitmentHandler.Commit(*big.NewInt(int64(s.commitmentValue)), *big.NewInt(s.commitmentKey))
+	c := commitmentHandler.Commit([]byte(strconv.Itoa(int(s.commitmentValue))), s.commitmentKey)
 
 	return &pb.Commitment{
-		Value: c.Int64(),
+		Value: c,
 	}, nil
 }
 
 func (s *Server) Reveal(ctx context.Context, reveal *pb.CommitmentReveal) (*pb.CommitmentReveal, error) {
 
-	clientRoll := big.NewInt(int64(reveal.GetValue()))
-	clientCommitmentKey := big.NewInt(reveal.GetKey())
-	correctMessage := commitmentHandler.Verify(*clientRoll, s.clientCommit, *clientCommitmentKey)
+	clientRoll := reveal.GetValue()
+	clientCommitmentKey := reveal.GetKey()
+	correctMessage := commitmentHandler.Verify([]byte(strconv.Itoa(int(clientRoll))), s.clientCommit, clientCommitmentKey)
 
 	if !correctMessage {
 
@@ -74,18 +74,14 @@ func (s *Server) Reveal(ctx context.Context, reveal *pb.CommitmentReveal) (*pb.C
 	return &pb.CommitmentReveal{
 		Value: int32(s.commitmentValue),
 		Key: s.commitmentKey,
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random: 0,
-		},
 	}, nil
 }
 
 func (s *Server) resetCommitment() {
 
-	s.commitmentKey = int64(RESET_VALUE)
+	s.commitmentKey = nil
 	s.commitmentValue = utils.PartialRoll(RESET_VALUE)
-	s.clientCommit = *big.NewInt(int64(RESET_VALUE));
+	s.clientCommit = nil
 }
 
 func (s *Server) resetRoll() {
