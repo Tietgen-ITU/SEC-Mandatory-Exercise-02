@@ -6,14 +6,14 @@ services:
       dockerfile: Dockerfile.server
     networks:
       app_net:
-        ipv4_address: 172.16.238.3
+        ipv4_address: 192.168.0.3
   
   alice:
     depends_on:
       - Bob
     networks:
       app_net:
-        ipv4_address: 172.16.238.6
+        ipv4_address: 192.168.0.6
     build:
       context: .
       dockerfile: Dockerfile.client
@@ -25,7 +25,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: "172.16.238.0/24"
+        - subnet: "192.168.0.0/24"
 
 volumes:
   data:
