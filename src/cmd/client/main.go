@@ -16,7 +16,7 @@ import (
 
 var (
 	serverAddr        = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
-	signatureHandler  = crypto.CreateNew()
+	cryptoHandler  = crypto.CreateNew()
 	commitmentHandler = commitments.CreateNew()
 )
 
@@ -36,7 +36,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if pk, ok := exchangePublicKey(signatureHandler.PublicKey(), conn, &ctx); ok {
+	if pk, ok := exchangePublicKey(cryptoHandler.PublicKey(), conn, &ctx); ok {
 
 		playDiceGame(&pk, &client, &ctx)
 	}
@@ -70,15 +70,15 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 	for roll == 0 {
 		roll = rand.Int31n(6)
 	}
-	// TODO: Sign commitment message
 
 	// Send commitment of roll
 	commit := commitmentHandler.Commit(*big.NewInt(int64(roll)), *big.NewInt(commitmentKey))
+	r,s := cryptoHandler.Sign(commit)
 	serverCommitment, err := client.Commit(*ctx, &pb.Commitment{
 		Value: commit.Int64(),
 		Signature: &pb.Signature{
-			Signature: 0,
-			Random:    0,
+			Signature: s.Int64(),
+			Random:    r.Int64(),
 		},
 	})
 
@@ -88,8 +88,16 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 	}
 
 	// TODO: Verify signature of server commitment message with pk
+	sign := big.NewInt(serverCommitment.GetSignature().GetSignature())
+	random := big.NewInt(serverCommitment.GetSignature().GetRandom())
+	serverCommit := big.NewInt(serverCommitment.GetValue())
+	if ok := cryptoHandler.Verify(*serverCommit, *sign, *random, *pk); !ok {
+		return 0, false
+	}
 
 	// TODO: Sign commitment reveal
+	
+	r, s := cryptoHandler.Sign()
 
 	// Reveal commitment to server
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
