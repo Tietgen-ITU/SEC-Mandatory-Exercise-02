@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 	pb "sec.itu.dk/ex2/api"
@@ -62,9 +63,10 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 
 	// Generate commitment key and make dice roll
 	commitmentKey := hashing.GenerateRandomByteArray()
-	roll := rand.Int31n(6)
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	roll := random.Int31n(6)
 	for roll == 0 {
-		roll = rand.Int31n(6)
+		roll = random.Int31n(6)
 	}
 
 	// Send commitment of roll

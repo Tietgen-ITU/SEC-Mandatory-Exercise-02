@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
+	"net"
 	"strconv"
+	"time"
 
+	"google.golang.org/grpc"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
 	"sec.itu.dk/ex2/internals/crypto/hashing"
@@ -28,16 +32,47 @@ type Server struct {
 
 func main() {
 
+	server := CreateNewServer()
+
+	server.Start()
+}
+
+func CreateNewServer() *Server {
+
+	return &Server{
+		clientRoll: utils.DiceRoll(RESET_VALUE),
+		clientCommit: nil,
+		commitmentKey: nil,
+		commitmentValue: utils.PartialRoll(RESET_VALUE),
+	}
+}
+
+func (s *Server) Start() {
+	fmt.Printf("Starting server...")
+
+	lis, err := net.Listen("tcp", ":5001")
+	if err != nil {
+		fmt.Printf("Failed to listen: %v", err)
+	}
+
+	server := grpc.NewServer()
+	pb.RegisterDiceServer(server, s)
+
+	fmt.Printf("Server listening on %v \n", lis.Addr())
+	if err := server.Serve(lis); err != nil {
+		fmt.Printf("Failed to serve: %v \n", err)
+	}
 }
 
 func (s *Server) Commit(ctx context.Context, commit *pb.Commitment) (*pb.Commitment, error) {
 
 	s.clientCommit = commit.GetValue()
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	s.commitmentKey = hashing.GenerateRandomByteArray()
-	s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
+	s.commitmentValue = utils.PartialRoll(random.Int31n(6))
 	for s.commitmentValue == 0 {
-		s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
+		s.commitmentValue = utils.PartialRoll(random.Int31n(6))
 	}
 
 	c := commitmentHandler.Commit([]byte(strconv.Itoa(int(s.commitmentValue))), s.commitmentKey)
