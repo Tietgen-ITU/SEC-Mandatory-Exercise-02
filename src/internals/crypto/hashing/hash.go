@@ -2,10 +2,10 @@ package hashing
 
 import (
 	"hash"
-	"math/big"
 	"math/rand"
 
 	"golang.org/x/crypto/sha3"
+	"golang.org/x/exp/slices"
 )
 
 type HashType int32
@@ -18,10 +18,10 @@ const (
 
 type HashHandler interface {
 	// Hashes message with the given integer key
-	Hash(key big.Int, message []byte) big.Int
+	Hash(key []byte, message []byte) []byte
 
 	// Compares the message with the other integer hash and integer key 
-	Compare(message []byte, key, hashValue big.Int) bool
+	Compare(message []byte, key, hashValue []byte) bool
 }
 
 type Hasher struct {
@@ -43,28 +43,27 @@ func CreateNew(hashType HashType) *Hasher {
 	return &Hasher{internalHasher: hash}
 }
 
-func (hasher *Hasher) Hash(key big.Int, message []byte) big.Int {
+func (hasher *Hasher) Hash(key []byte, message []byte) []byte {
 
 	// Reset the hasher after the hash value has been created
 	defer hasher.internalHasher.Reset()
 	
 	// Provide the key and value to be hashed
-	hasher.internalHasher.Write(key.Bytes())
+	hasher.internalHasher.Write(key)
 	hasher.internalHasher.Write(message)
 
 	// Get the resulting size of the byte array
 	size := hasher.internalHasher.Size()
 	resultBytes := hasher.internalHasher.Sum(make([]byte, size))
 
-	resultInt := big.NewInt(0).SetBytes(resultBytes)
-	return *resultInt 
+	return resultBytes 
 }
 
-func (hasher *Hasher) Compare(message []byte, key, hashValue big.Int) bool {
+func (hasher *Hasher) Compare(message []byte, key, hashValue []byte) bool {
 
-	var hashedMessage big.Int = hasher.Hash(key, message)
+	hashedMessage := hasher.Hash(key, message)
 
-	return hashValue.Cmp(&hashedMessage) == 0 // If the value is zero then it means that they are the same
+	return slices.Equal(hashValue, hashedMessage) // If the value is zero then it means that they are the same
 }
 
 func GenerateRandomByteArray() []byte {
