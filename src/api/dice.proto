@@ -7,31 +7,13 @@ service Dice {
     rpc Reveal(CommitmentReveal) returns (CommitmentReveal);
 }
 
-service KeyExchange {
-
-    rpc ExchangePk(Key) returns (Key);
-}
-
 message Empty {}
 
-message Key {
-    int64 value = 1;
-}
-
-message Signature {
-
-// TODO: Check if we should change some of the types to use bytes(equivalent to []byte in Go) instead
-    int64 random = 1; // Random key
-    int64 signature = 2; // The actual signature
-}
-
 message Commitment {
-    int64 value = 1;
-    Signature signature = 2;
+    bytes value = 1;
 }
 
 message CommitmentReveal {
-    int64 key = 1;
+    bytes key = 1;
     int32 value = 2;
-    Signature signature = 3;
 }
