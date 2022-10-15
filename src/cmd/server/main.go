@@ -9,12 +9,10 @@ import (
 	"sec.itu.dk/ex2/internals/utils"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/crypto"
 )
 
 var (
 	commitmentHandler = commitments.CreateNew()
-	signatureHandler  = crypto.CreateNew()
 )
 
 const RESET_VALUE int = -1
@@ -26,7 +24,6 @@ type Server struct {
 	clientCommit    big.Int
 	commitmentValue utils.PartialRoll
 	commitmentKey   int64
-	clientPk        big.Int
 }
 
 func main() {
@@ -34,9 +31,6 @@ func main() {
 }
 
 func (s *Server) Commit(ctx context.Context, commit *pb.Commitment) (*pb.Commitment, error) {
-
-	// TODO: Verify signature
-	// TODO: Decrypt message
 
 	s.clientCommit = *big.NewInt(commit.GetValue())
 
@@ -97,14 +91,4 @@ func (s *Server) resetCommitment() {
 func (s *Server) resetRoll() {
 
 	s.clientRoll = utils.DiceRoll(RESET_VALUE);
-}
-
-func (s *Server) ExchangePk(ctx context.Context, key *pb.Key) (*pb.Key, error) {
-
-	s.clientPk = *big.NewInt(key.GetValue())
-	pk := signatureHandler.PublicKey()
-
-	return &pb.Key{
-		Value: pk.Int64(),
-	}, nil
 }

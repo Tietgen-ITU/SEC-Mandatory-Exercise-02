@@ -10,13 +10,11 @@ import (
 	"google.golang.org/grpc"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/crypto"
 	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
 	serverAddr        = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
-	signatureHandler  = crypto.CreateNew()
 	commitmentHandler = commitments.CreateNew()
 )
 
@@ -36,22 +34,19 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if pk, ok := exchangePublicKey(signatureHandler.PublicKey(), conn, &ctx); ok {
-
-		playDiceGame(&pk, &client, &ctx)
-	}
+	playDiceGame(&client, &ctx)
 }
 
 /*
 Is the main game loop for the client
 */
-func playDiceGame(pk *big.Int, client *pb.DiceClient, ctx *context.Context) {
+func playDiceGame(client *pb.DiceClient, ctx *context.Context) {
 
 	for i := 0; i < 6; i++ {
 
-		if clientRoll, clientRollOk := diceRoll(pk, *client, ctx); clientRollOk {
+		if clientRoll, clientRollOk := diceRoll(*client, ctx); clientRollOk {
 
-			if serverRoll, serverRollOk := diceRoll(pk, *client, ctx); serverRollOk {
+			if serverRoll, serverRollOk := diceRoll(*client, ctx); serverRollOk {
 
 				utils.PrintDiceRollWinner(clientRoll, serverRoll)
 			}
@@ -62,7 +57,7 @@ func playDiceGame(pk *big.Int, client *pb.DiceClient, ctx *context.Context) {
 /*
 Makes the random dice roll in collaboration with the server
 */
-func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
+func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
 
 	// Generate commitment key and make dice roll
 	commitmentKey := rand.Int63()
@@ -70,7 +65,6 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 	for roll == 0 {
 		roll = rand.Int31n(6)
 	}
-	// TODO: Sign commitment message
 
 	// Send commitment of roll
 	commit := commitmentHandler.Commit(*big.NewInt(int64(roll)), *big.NewInt(commitmentKey))
@@ -87,10 +81,6 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 		return 0, false
 	}
 
-	// TODO: Verify signature of server commitment message with pk
-
-	// TODO: Sign commitment reveal
-
 	// Reveal commitment to server
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
 		Value: roll,
@@ -105,8 +95,6 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 		fmt.Println("Could not reveal commitment to server!")
 		return 0, false
 	}
-
-	// TODO: Verify signature of server commitment reveal message with pk
 
 	// Calculate the random roll
 	serverValue := big.NewInt(int64(serverRollReveal.GetValue()))
