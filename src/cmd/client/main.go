@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"math/big"
 	"math/rand"
+	"strconv"
 
 	"google.golang.org/grpc"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
+	"sec.itu.dk/ex2/internals/crypto/hashing"
 	"sec.itu.dk/ex2/internals/utils"
 )
 
@@ -60,20 +61,16 @@ Makes the random dice roll in collaboration with the server
 func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
 
 	// Generate commitment key and make dice roll
-	commitmentKey := rand.Int63()
+	commitmentKey := hashing.GenerateRandomByteArray()
 	roll := rand.Int31n(6)
 	for roll == 0 {
 		roll = rand.Int31n(6)
 	}
 
 	// Send commitment of roll
-	commit := commitmentHandler.Commit(*big.NewInt(int64(roll)), *big.NewInt(commitmentKey))
+	commit := commitmentHandler.Commit([]byte(strconv.Itoa(int(roll))), commitmentKey)
 	serverCommitment, err := client.Commit(*ctx, &pb.Commitment{
-		Value: commit.Int64(),
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random:    0,
-		},
+		Value: commit,
 	})
 
 	if err != nil {
@@ -85,10 +82,6 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
 		Value: roll,
 		Key:   commitmentKey,
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random:    0,
-		},
 	})
 
 	if err != nil {
@@ -97,32 +90,13 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 	}
 
 	// Calculate the random roll
-	serverValue := big.NewInt(int64(serverRollReveal.GetValue()))
-	serverCommitmentKey := big.NewInt(serverRollReveal.GetKey())
-	serverCommitmentValue := big.NewInt(serverCommitment.GetValue())
+	serverValue := serverRollReveal.GetValue()
+	serverCommitmentKey := serverRollReveal.GetKey()
+	serverCommitmentValue := serverCommitment.Value
 
-	correctMessage := commitmentHandler.Verify(*serverValue, *serverCommitmentValue, *serverCommitmentKey)
+	correctMessage := commitmentHandler.Verify([]byte(strconv.Itoa(int(serverValue))), serverCommitmentValue, serverCommitmentKey)
 
 	result := utils.CalculateRoll(utils.PartialRoll(serverRollReveal.Value), utils.PartialRoll(roll))
 
 	return result, correctMessage
-}
-
-/*
-Exchanges the public key with the server. Simulates the PKI
-*/
-func exchangePublicKey(publicKey big.Int, conn *grpc.ClientConn, ctx *context.Context) (big.Int, bool) {
-
-	exchangeClient := pb.NewKeyExchangeClient(conn)
-
-	reply, err := exchangeClient.ExchangePk(*ctx, &pb.Key{
-		Value: publicKey.Int64(),
-	})
-
-	if err != nil {
-		fmt.Println("Could not exchange keys!")
-		return *new(big.Int), false
-	}
-
-	return *big.NewInt(reply.Value), true
 }
