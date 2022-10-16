@@ -28,7 +28,7 @@ var (
 func main() {
 
 	flag.Parse()
-	fmt.Printf("%s", *serverAddr)
+	fmt.Printf("Server endpoint address from flag: %s \n", *serverAddr)
 
 	fmt.Println("Setting up client...")
 

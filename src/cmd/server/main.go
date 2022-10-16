@@ -50,7 +50,7 @@ func CreateNewServer() *Server {
 }
 
 func (s *Server) Start() {
-	fmt.Printf("Starting server...")
+	fmt.Printf("Starting server...\n")
 
 	lis, err := net.Listen("tcp", ":5001")
 	if err != nil {
