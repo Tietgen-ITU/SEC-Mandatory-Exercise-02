@@ -1,20 +1,13 @@
-# DISCLAIMER:
-# This script is taken from the https://dev.to/techschoolguru/how-to-secure-grpc-connection-with-ssl-tls-in-go-4ph
-# Only small parts of the original script has been modified
+# ca-key.key is the private key and the ca-cert.crt is the signed CA certificate
+openssl req -x509 -sha256 -newkey rsa:4096 -days 365 -nodes -keyout ca-key.key -out ca-cert.crt
 
-rm *.pem
+# Now we generate the server certificates
+# We start of by creating the private key for the server
+openssl genrsa -out server-key.key 2048
 
-# 1. Generate CA's private key and self-signed certificate
-openssl req -x509 -newkey rsa:4096 -days 365 -nodes -keyout ca-key.pem -out ca-cert.pem -subj "/C=DK/L=Copenhagen/O=Tech School/OU=Education/CN=bob/emailAddress=anti@itu.dk"
+# In order to create the server signed public key certificate then we need to create a
+# CSR (Certificate Signing Request)
+openssl req -new -key server-key.key -out server.csr -config csr.conf
 
-echo "CA's self-signed certificate"
-openssl x509 -in ca-cert.pem -noout -text
-
-# 2. Generate web server's private key and certificate signing request (CSR)
-openssl req -newkey rsa:4096 -nodes -keyout server-key.pem -out server-req.pem -subj "/C=DK/L=Copenhagen/O=PC Book/OU=Computer/CN=bob/emailAddress=anti@itu.dk"
-
-# 3. Use CA's private key to sign web server's CSR and get back the signed certificate
-openssl x509 -req -in server-req.pem -days 60 -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -extfile server-ext.cnf
-
-echo "Server's signed certificate"
-openssl x509 -in server-cert.pem -noout -text
+# Now we want to create the signed public key certificate for the server
+openssl x509 -req -in server.csr -CA ca-cert.crt -CAkey ca-key.key -CAcreateserial -out server.crt -days 365 -sha256 -extfile server.conf
