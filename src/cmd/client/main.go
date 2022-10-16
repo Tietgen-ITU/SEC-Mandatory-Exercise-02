@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
 	"sec.itu.dk/ex2/internals/crypto/hashing"
@@ -23,9 +27,17 @@ var (
 func main() {
 
 	flag.Parse()
+	fmt.Printf("%s", *serverAddr)
 
+	time.Sleep(5 * time.Second)
 	fmt.Println("Setting up client...")
-	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	tlsCreds, err := getTLSCredentials()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(tlsCreds), grpc.WithChainUnaryInterceptor(), grpc.WithChainStreamInterceptor())
 	if err != nil {
 		fmt.Println("Could not connect to server!")
 	}
@@ -76,7 +88,7 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 	})
 
 	if err != nil {
-		fmt.Println("Could not send commitment to server!")
+		fmt.Printf("Could not send commitment to server: %s \n", err.Error())
 		return 0, false
 	}
 
@@ -101,4 +113,25 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 	result := utils.CalculateRoll(utils.PartialRoll(serverRollReveal.Value), utils.PartialRoll(roll))
 
 	return result, correctMessage
+}
+
+func getTLSCredentials() (credentials.TransportCredentials, error) {
+
+	caCert, err := ioutil.ReadFile("./assets/certificates/ca-cert.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+
+	if ok := certPool.AppendCertsFromPEM(caCert); !ok {
+		return nil, fmt.Errorf("Could not add CA to cert pool")
+	}
+
+	config := &tls.Config{
+		RootCAs: certPool,
+		//InsecureSkipVerify: true,
+	}
+
+	return credentials.NewTLS(config), nil
 }

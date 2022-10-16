@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
 	"sec.itu.dk/ex2/internals/crypto/hashing"
@@ -55,7 +57,12 @@ func (s *Server) Start() {
 		fmt.Printf("Failed to listen: %v", err)
 	}
 
-	server := grpc.NewServer()
+	tlsCreds, err := getTLSCredentials()
+	if err != nil {
+		fmt.Println("Could not load certificates")
+	}
+
+	server := grpc.NewServer(grpc.Creds(tlsCreds), grpc.ChainUnaryInterceptor(), grpc.ChainStreamInterceptor())
 	pb.RegisterDiceServer(server, s)
 
 	fmt.Printf("Server listening on %v \n", lis.Addr())
@@ -122,4 +129,19 @@ func (s *Server) resetCommitment() {
 func (s *Server) resetRoll() {
 
 	s.clientRoll = utils.DiceRoll(RESET_VALUE);
+}
+
+func getTLSCredentials() (credentials.TransportCredentials, error) {
+
+	serverCert, err := tls.LoadX509KeyPair("./assets/certificates/server-cert.pem", "./assets/certificates/server-key.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	config := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:  tls.NoClientCert,
+	}
+
+	return credentials.NewTLS(config), nil
 }
