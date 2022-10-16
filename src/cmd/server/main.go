@@ -2,62 +2,98 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
-	"math/big"
+	"fmt"
 	"math/rand"
+	"net"
+	"strconv"
+	"time"
 
-	"sec.itu.dk/ex2/internals/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/signatures"
+	"sec.itu.dk/ex2/internals/crypto/hashing"
+	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
 	commitmentHandler = commitments.CreateNew()
-	signatureHandler  = signatures.CreateNew()
 )
 
 const RESET_VALUE int = -1
 
 type Server struct {
-	pb.UnimplementedKeyExchangeServer
 	pb.UnimplementedDiceServer
 	clientRoll      utils.DiceRoll
-	clientCommit    big.Int
+	clientCommit    []byte
 	commitmentValue utils.PartialRoll
-	commitmentKey   int64
-	clientPk        big.Int
+	commitmentKey   []byte
 }
 
 func main() {
 
+	server := CreateNewServer()
+
+	server.Start()
+}
+
+func CreateNewServer() *Server {
+
+	return &Server{
+		clientRoll: utils.DiceRoll(RESET_VALUE),
+		clientCommit: nil,
+		commitmentKey: nil,
+		commitmentValue: utils.PartialRoll(RESET_VALUE),
+	}
+}
+
+func (s *Server) Start() {
+	fmt.Printf("Starting server...")
+
+	lis, err := net.Listen("tcp", ":5001")
+	if err != nil {
+		fmt.Printf("Failed to listen: %v", err)
+	}
+
+	tlsCreds, err := getTLSCredentials()
+	if err != nil {
+		fmt.Println("Could not load certificates")
+	}
+
+	server := grpc.NewServer(grpc.Creds(tlsCreds), grpc.ChainUnaryInterceptor(), grpc.ChainStreamInterceptor())
+	pb.RegisterDiceServer(server, s)
+
+	fmt.Printf("Server listening on %v \n", lis.Addr())
+	if err := server.Serve(lis); err != nil {
+		fmt.Printf("Failed to serve: %v \n", err)
+	}
 }
 
 func (s *Server) Commit(ctx context.Context, commit *pb.Commitment) (*pb.Commitment, error) {
 
-	// TODO: Verify signature
-	// TODO: Decrypt message
+	s.clientCommit = commit.GetValue()
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	s.clientCommit = *big.NewInt(commit.GetValue())
-
-	s.commitmentKey = rand.Int63()
-	s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
+	s.commitmentKey = hashing.GenerateRandomByteArray()
+	s.commitmentValue = utils.PartialRoll(random.Int31n(6))
 	for s.commitmentValue == 0 {
-		s.commitmentValue = utils.PartialRoll(rand.Int31n(6))
+		s.commitmentValue = utils.PartialRoll(random.Int31n(6))
 	}
 
-	c := commitmentHandler.Commit(*big.NewInt(int64(s.commitmentValue)), *big.NewInt(s.commitmentKey))
+	c := commitmentHandler.Commit([]byte(strconv.Itoa(int(s.commitmentValue))), s.commitmentKey)
 
 	return &pb.Commitment{
-		Value: c.Int64(),
+		Value: c,
 	}, nil
 }
 
 func (s *Server) Reveal(ctx context.Context, reveal *pb.CommitmentReveal) (*pb.CommitmentReveal, error) {
 
-	clientRoll := big.NewInt(int64(reveal.GetValue()))
-	clientCommitmentKey := big.NewInt(reveal.GetKey())
-	correctMessage := commitmentHandler.Verify(*clientRoll, s.clientCommit, *clientCommitmentKey)
+	clientRoll := reveal.GetValue()
+	clientCommitmentKey := reveal.GetKey()
+	correctMessage := commitmentHandler.Verify([]byte(strconv.Itoa(int(clientRoll))), s.clientCommit, clientCommitmentKey)
 
 	if !correctMessage {
 
@@ -80,18 +116,14 @@ func (s *Server) Reveal(ctx context.Context, reveal *pb.CommitmentReveal) (*pb.C
 	return &pb.CommitmentReveal{
 		Value: int32(s.commitmentValue),
 		Key: s.commitmentKey,
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random: 0,
-		},
 	}, nil
 }
 
 func (s *Server) resetCommitment() {
 
-	s.commitmentKey = int64(RESET_VALUE)
+	s.commitmentKey = nil
 	s.commitmentValue = utils.PartialRoll(RESET_VALUE)
-	s.clientCommit = *big.NewInt(int64(RESET_VALUE));
+	s.clientCommit = nil
 }
 
 func (s *Server) resetRoll() {
@@ -99,12 +131,17 @@ func (s *Server) resetRoll() {
 	s.clientRoll = utils.DiceRoll(RESET_VALUE);
 }
 
-func (s *Server) ExchangePk(ctx context.Context, key *pb.Key) (*pb.Key, error) {
+func getTLSCredentials() (credentials.TransportCredentials, error) {
 
-	s.clientPk = *big.NewInt(key.GetValue())
-	pk := signatureHandler.PublicKey()
+	serverCert, err := tls.LoadX509KeyPair("./assets/certificates/server.crt", "./assets/certificates/server-key.key")
+	if err != nil {
+		return nil, err
+	}
 
-	return &pb.Key{
-		Value: pk.Int64(),
-	}, nil
+	config := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:  tls.NoClientCert,
+	}
+
+	return credentials.NewTLS(config), nil
 }

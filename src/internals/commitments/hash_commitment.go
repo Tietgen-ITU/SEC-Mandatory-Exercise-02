@@ -1,10 +1,9 @@
 package commitments
 
 import (
-	"math/big"
-
 	"sec.itu.dk/ex2/internals/crypto/hashing"
-	"sec.itu.dk/ex2/internals/math"
+
+	"golang.org/x/exp/slices"
 )
 
 type HashCommitment struct {
@@ -17,14 +16,14 @@ func CreateNew() *HashCommitment {
 	return &HashCommitment{hasher: hasher}
 }
 
-func (hc *HashCommitment) Commit(message, pk big.Int) big.Int {
+func (hc *HashCommitment) Commit(message, random []byte) []byte {
 
-	return hc.hasher.Hash(pk, message.Bytes())
+	return hc.hasher.Hash(random, message)
 }
 
-func (hc *HashCommitment) Verify(message, commitment, pk big.Int) bool {
+func (hc *HashCommitment) Verify(message, commitment, pk []byte) bool {
 
-	hashedMessage := hc.hasher.Hash(pk, message.Bytes())
+	hashedMessage := hc.hasher.Hash(pk, message)
 
-	return math.Equals(&hashedMessage, &commitment)
+	return slices.Equal(hashedMessage, commitment)
 }

@@ -13,10 +13,10 @@ func PrintDiceRollWinner(client, server DiceRoll) {
 
 	if client > server {
 		
-		fmt.Println("Client Won!")
+		fmt.Println("Alice Won!")
 	} else if client < server {
 		
-		fmt.Println("Server Won!")
+		fmt.Println("Bob Won!")
 	} else {
 
 		fmt.Println("Draw!")

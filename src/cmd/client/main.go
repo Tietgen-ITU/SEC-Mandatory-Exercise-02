@@ -2,56 +2,69 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
-	"math/big"
+	"io/ioutil"
 	"math/rand"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	pb "sec.itu.dk/ex2/api"
 	"sec.itu.dk/ex2/internals/commitments"
-	"sec.itu.dk/ex2/internals/signatures"
+	"sec.itu.dk/ex2/internals/crypto/hashing"
 	"sec.itu.dk/ex2/internals/utils"
 )
 
 var (
 	serverAddr        = flag.String("serverAddr", "localhost:5001", "Server to play the dice game with")
-	signatureHandler  = signatures.CreateNew()
 	commitmentHandler = commitments.CreateNew()
 )
 
 func main() {
 
 	flag.Parse()
+	fmt.Printf("%s", *serverAddr)
 
 	fmt.Println("Setting up client...")
-	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+
+	// Get TLS credentials
+	tlsCreds, err := getTLSCredentials()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Create connection with TLS credentials
+	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(tlsCreds), grpc.WithChainUnaryInterceptor(), grpc.WithChainStreamInterceptor())
 	if err != nil {
 		fmt.Println("Could not connect to server!")
 	}
 
 	defer conn.Close()
 
+	// Create Dice client
 	client := pb.NewDiceClient(conn)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if pk, ok := exchangePublicKey(signatureHandler.PublicKey(), conn, &ctx); ok {
-
-		playDiceGame(&pk, &client, &ctx)
-	}
+	playDiceGame(&client, &ctx)
 }
 
 /*
 Is the main game loop for the client
 */
-func playDiceGame(pk *big.Int, client *pb.DiceClient, ctx *context.Context) {
+func playDiceGame(client *pb.DiceClient, ctx *context.Context) {
 
 	for i := 0; i < 6; i++ {
 
-		if clientRoll, clientRollOk := diceRoll(pk, *client, ctx); clientRollOk {
+		if clientRoll, clientRollOk := diceRoll(*client, ctx); clientRollOk {
 
-			if serverRoll, serverRollOk := diceRoll(pk, *client, ctx); serverRollOk {
+			if serverRoll, serverRollOk := diceRoll(*client, ctx); serverRollOk {
 
 				utils.PrintDiceRollWinner(clientRoll, serverRoll)
 			}
@@ -62,43 +75,31 @@ func playDiceGame(pk *big.Int, client *pb.DiceClient, ctx *context.Context) {
 /*
 Makes the random dice roll in collaboration with the server
 */
-func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
+func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool) {
 
 	// Generate commitment key and make dice roll
-	commitmentKey := rand.Int63()
-	roll := rand.Int31n(6)
+	commitmentKey := hashing.GenerateRandomByteArray()
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+	roll := random.Int31n(6)
 	for roll == 0 {
-		roll = rand.Int31n(6)
+		roll = random.Int31n(6)
 	}
-	// TODO: Sign commitment message
 
 	// Send commitment of roll
-	commit := commitmentHandler.Commit(*big.NewInt(int64(roll)), *big.NewInt(commitmentKey))
+	commit := commitmentHandler.Commit([]byte(strconv.Itoa(int(roll))), commitmentKey)
 	serverCommitment, err := client.Commit(*ctx, &pb.Commitment{
-		Value: commit.Int64(),
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random:    0,
-		},
+		Value: commit,
 	})
 
 	if err != nil {
-		fmt.Println("Could not send commitment to server!")
+		fmt.Printf("Could not send commitment to server: %s \n", err.Error())
 		return 0, false
 	}
-
-	// TODO: Verify signature of server commitment message with pk
-
-	// TODO: Sign commitment reveal
 
 	// Reveal commitment to server
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
 		Value: roll,
 		Key:   commitmentKey,
-		Signature: &pb.Signature{
-			Signature: 0,
-			Random:    0,
-		},
 	})
 
 	if err != nil {
@@ -106,14 +107,12 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 		return 0, false
 	}
 
-	// TODO: Verify signature of server commitment reveal message with pk
-
 	// Calculate the random roll
-	serverValue := big.NewInt(int64(serverRollReveal.GetValue()))
-	serverCommitmentKey := big.NewInt(serverRollReveal.GetKey())
-	serverCommitmentValue := big.NewInt(serverCommitment.GetValue())
+	serverValue := serverRollReveal.GetValue()
+	serverCommitmentKey := serverRollReveal.GetKey()
+	serverCommitmentValue := serverCommitment.Value
 
-	correctMessage := commitmentHandler.Verify(*serverValue, *serverCommitmentValue, *serverCommitmentKey)
+	correctMessage := commitmentHandler.Verify([]byte(strconv.Itoa(int(serverValue))), serverCommitmentValue, serverCommitmentKey)
 
 	result := utils.CalculateRoll(utils.PartialRoll(serverRollReveal.Value), utils.PartialRoll(roll))
 
@@ -121,20 +120,29 @@ func diceRoll(pk *big.Int, client pb.DiceClient, ctx *context.Context) (utils.Di
 }
 
 /*
-Exchanges the public key with the server. Simulates the PKI
+Gets certificates and loads them into an application created certificate pool and returns the TLS credentials
 */
-func exchangePublicKey(publicKey big.Int, conn *grpc.ClientConn, ctx *context.Context) (big.Int, bool) {
+func getTLSCredentials() (credentials.TransportCredentials, error) {
 
-	exchangeClient := pb.NewKeyExchangeClient(conn)
-
-	reply, err := exchangeClient.ExchangePk(*ctx, &pb.Key{
-		Value: publicKey.Int64(),
-	})
-
+	caCert, err := ioutil.ReadFile("./assets/certificates/ca-cert.crt")
 	if err != nil {
-		fmt.Println("Could not exchange keys!")
-		return *new(big.Int), false
+		return nil, err
 	}
 
-	return *big.NewInt(reply.Value), true
+	block, _ := pem.Decode(caCert) // Get PEM decoded
+
+	// Parse certificates and add it to the certificate pool
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	certPool := x509.NewCertPool()
+	certPool.AddCert(certificate)
+
+	// Create TLS configuration
+	config := &tls.Config{
+		RootCAs: certPool,
+	}
+
+	return credentials.NewTLS(config), nil
 }

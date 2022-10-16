@@ -15,4 +15,4 @@ COPY ./src ./
 
 RUN go build -o /client ./cmd/client/main.go
 
-CMD ["sh", "-c", "/client --serverAddr ${SERVERADDR} --random"]
+CMD ["sh", "-c", "/client --serverAddr ${SERVERADDR}"]
