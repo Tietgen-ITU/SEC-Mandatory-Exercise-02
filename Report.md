@@ -4,10 +4,12 @@ Created by: Andreas Nicolaj Tietgen (anti@itu.dk)
 
 ## Running the dice game
 In order for this project to run then you have to use docker.
-Use your terminal and go to the root of this project folder. Type in the following:
-```bash
-docker compose up --build
-```
+Before using docker then we need to generate the certificates first. 
+We do so by using the terminal.
+
+- Go to the root of the project
+- Type in the following `cd ./src/assets/certificates && sh gen_cert.sh`
+- Then we build and run the docker image by typing the following: `docker compose up --build`
 
 ### Output
 When running the application through docker, the output will look similar to this(of course with a different result in terms of who wins):
