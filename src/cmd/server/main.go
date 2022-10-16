@@ -133,7 +133,7 @@ func (s *Server) resetRoll() {
 
 func getTLSCredentials() (credentials.TransportCredentials, error) {
 
-	serverCert, err := tls.LoadX509KeyPair("./assets/certificates/server-cert.pem", "./assets/certificates/server-key.pem")
+	serverCert, err := tls.LoadX509KeyPair("./assets/certificates/server.crt", "./assets/certificates/server-key.key")
 	if err != nil {
 		return nil, err
 	}
