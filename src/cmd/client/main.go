@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -29,14 +30,16 @@ func main() {
 	flag.Parse()
 	fmt.Printf("%s", *serverAddr)
 
-	time.Sleep(5 * time.Second)
 	fmt.Println("Setting up client...")
+
+	// Get TLS credentials
 	tlsCreds, err := getTLSCredentials()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
+	// Create connection with TLS credentials
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(tlsCreds), grpc.WithChainUnaryInterceptor(), grpc.WithChainStreamInterceptor())
 	if err != nil {
 		fmt.Println("Could not connect to server!")
@@ -44,6 +47,7 @@ func main() {
 
 	defer conn.Close()
 
+	// Create Dice client
 	client := pb.NewDiceClient(conn)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -115,22 +119,29 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 	return result, correctMessage
 }
 
+/*
+Gets certificates and loads them into an application created certificate pool and returns the TLS credentials
+*/
 func getTLSCredentials() (credentials.TransportCredentials, error) {
 
-	caCert, err := ioutil.ReadFile("./assets/certificates/ca-cert.pem")
+	caCert, err := ioutil.ReadFile("./assets/certificates/ca-cert.crt")
 	if err != nil {
 		return nil, err
 	}
 
-	certPool := x509.NewCertPool()
+	block, _ := pem.Decode(caCert) // Get PEM decoded
 
-	if ok := certPool.AppendCertsFromPEM(caCert); !ok {
-		return nil, fmt.Errorf("Could not add CA to cert pool")
+	// Parse certificates and add it to the certificate pool
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, err
 	}
+	certPool := x509.NewCertPool()
+	certPool.AddCert(certificate)
 
+	// Create TLS configuration
 	config := &tls.Config{
 		RootCAs: certPool,
-		//InsecureSkipVerify: true,
 	}
 
 	return credentials.NewTLS(config), nil
