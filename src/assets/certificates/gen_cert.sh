@@ -1,5 +1,7 @@
+rm *.crt *.key *.csr
+
 # ca-key.key is the private key and the ca-cert.crt is the signed CA certificate
-openssl req -x509 -sha256 -newkey rsa:4096 -days 365 -nodes -keyout ca-key.key -out ca-cert.crt
+openssl req -x509 -sha256 -newkey rsa:4096 -days 365 -nodes -keyout ca-key.key -out ca-cert.crt -subj "C=DK/ST=Copenhagen/L=Copenhagen/O=IT University/OU=Students/CN=bob/emailAddress=anti@itu.dk"
 
 # Now we generate the server certificates
 # We start of by creating the private key for the server
