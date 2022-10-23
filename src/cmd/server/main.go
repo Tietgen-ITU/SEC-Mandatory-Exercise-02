@@ -5,10 +5,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -74,13 +72,9 @@ func (s *Server) Start() {
 func (s *Server) Commit(ctx context.Context, commit *pb.Commitment) (*pb.Commitment, error) {
 
 	s.clientCommit = commit.GetValue()
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	s.commitmentKey = hashing.GenerateRandomByteArray()
-	s.commitmentValue = utils.PartialRoll(random.Int31n(6))
-	for s.commitmentValue == 0 {
-		s.commitmentValue = utils.PartialRoll(random.Int31n(6))
-	}
+	s.commitmentValue = utils.RollPartially()
 
 	c := commitmentHandler.Commit([]byte(strconv.Itoa(int(s.commitmentValue))), s.commitmentKey)
 

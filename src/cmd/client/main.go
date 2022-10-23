@@ -8,9 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"strconv"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -79,11 +77,7 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 
 	// Generate commitment key and make dice roll
 	commitmentKey := hashing.GenerateRandomByteArray()
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-	roll := random.Int31n(6)
-	for roll == 0 {
-		roll = random.Int31n(6)
-	}
+	roll := utils.RollPartially()
 
 	// Send commitment of roll
 	commit := commitmentHandler.Commit([]byte(strconv.Itoa(int(roll))), commitmentKey)
@@ -98,7 +92,7 @@ func diceRoll(client pb.DiceClient, ctx *context.Context) (utils.DiceRoll, bool)
 
 	// Reveal commitment to server
 	serverRollReveal, err := client.Reveal(*ctx, &pb.CommitmentReveal{
-		Value: roll,
+		Value: int32(roll),
 		Key:   commitmentKey,
 	})
 

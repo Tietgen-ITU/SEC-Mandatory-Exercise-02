@@ -20,13 +20,13 @@ type HashHandler interface {
 	// Hashes message with the given integer key
 	Hash(key []byte, message []byte) []byte
 
-	// Compares the message with the other integer hash and integer key 
+	// Compares the message with the other integer hash and integer key
 	Compare(message []byte, key, hashValue []byte) bool
 }
 
 type Hasher struct {
 	internalHasher hash.Hash
-} 
+}
 
 func CreateNew(hashType HashType) *Hasher {
 
@@ -34,7 +34,7 @@ func CreateNew(hashType HashType) *Hasher {
 
 	switch hashType {
 	case SHA256:
-		hash = sha3.New256()		
+		hash = sha3.New256()
 	case SHA384:
 		hash = sha3.New384()
 	case SHA512:
@@ -47,7 +47,7 @@ func (hasher *Hasher) Hash(key []byte, message []byte) []byte {
 
 	// Reset the hasher after the hash value has been created
 	defer hasher.internalHasher.Reset()
-	
+
 	// Provide the key and value to be hashed
 	hasher.internalHasher.Write(key)
 	hasher.internalHasher.Write(message)
@@ -56,7 +56,7 @@ func (hasher *Hasher) Hash(key []byte, message []byte) []byte {
 	size := hasher.internalHasher.Size()
 	resultBytes := hasher.internalHasher.Sum(make([]byte, size))
 
-	return resultBytes 
+	return resultBytes
 }
 
 func (hasher *Hasher) Compare(message []byte, key, hashValue []byte) bool {
@@ -68,7 +68,8 @@ func (hasher *Hasher) Compare(message []byte, key, hashValue []byte) bool {
 
 func GenerateRandomByteArray() []byte {
 
-	bytes := make([]byte, 64)
+	// We generate a random byte array of 256 bits i.e. 256 / 8 = 32 bytes
+	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)
 
 	if err != nil {
