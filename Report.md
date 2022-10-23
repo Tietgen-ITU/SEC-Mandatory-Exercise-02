@@ -3,13 +3,23 @@
 Created by: Andreas Nicolaj Tietgen (anti@itu.dk)
 
 ## Running the dice game
-In order for this project to run then you have to use docker.
-Before using docker then we need to generate the certificates first. 
-We do so by using the terminal.
+In order to run the project then you need to use the following tools and versions(to be sure that it works):
+
+- Docker: Docker desktop 2.7.1
+
+- OpenSSL: LibreSSL 2.8.3
+
+- GoLang: v.1.19.2
+
+If certificates has not yet been created then we need to do that before using docker:
+We do so by using the terminal:
 
 - Go to the root of the project
+  
 - Type in the following `cd ./src/assets/certificates && sh gen_cert.sh`
-- Then we build and run the docker image by typing the following: `docker compose up --build`
+
+Now that the certificates have been generated then we can start docker.
+We build and run the docker images by typing the following: `docker compose up --build`
 
 ### Output
 When running the application through docker, the output will look similar to this(of course with a different result in terms of who wins):
@@ -76,4 +86,4 @@ The same goes for the reveal.
 
 In order for them both to have a dice roll then the above happens twice. After that, they compare the rolls and decides who wins(Which you can see in the output).
 
-The TLS is create with a self-signed CA Certificate which have signed the server certificate.
+The TLS is created with a self-signed CA Certificate which have signed the server certificate. The creation of certificates can be found in `assets/certificates/gen_cert.sh`.
