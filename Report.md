@@ -11,7 +11,7 @@ In order to run the project then you need to use the following tools and version
 
 - GoLang: v.1.19.2
 
-If certificates has not yet been created then we need to do that before using docker:
+If certificates has not yet been created then we need to do that before using docker.
 We do so by using the terminal:
 
 - Go to the root of the project
@@ -68,14 +68,14 @@ Some of the key reasons to use TLS is that it handles the key exchange by using 
 ### Why do we use Coin Tossing with commitments?
 The coin tossing scheme provides us with the ability to generate random values where we know that the other part cannot cheat by only roll a 6 in a 6 sided dice. 
 
-One roll is created by having two partial rolls. One from Bob and one from Alice. This create a roll by performing the XOR operation between the two partial rolls. 
+One roll is created by having two partial rolls. One from Bob and one from Alice. The roll is created by doing an XOR operation on the two partial rolls.
 
-How can we be sure that the partial roll that they have sent is the actual roll? We do so by using *commitments*. By using commitments we ensure that message being sent is the actual roll. We verify this by using comparing the commitment hash with the opening message.
+How can we be sure that the partial roll that they have sent is the actual roll? We do so by using *commitments*. We verify this by comparing the hash value of the random bit string and the message from the opening, and the commitment hash.
 
 ## How do Alice and Bob play the Dice game?
 I have created a client/server solution. Alice is the client and Bob is the server. Alice is the one who initiates the game every time. 
 
-For the Dice game we have two operations that Alice and Bob communicates with:
+In order to communicate then we have created a GRPC service called Dice. This service contains two operations:
 
 - Commit
 
