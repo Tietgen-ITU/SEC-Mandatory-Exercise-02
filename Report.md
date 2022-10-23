@@ -32,20 +32,28 @@ sec-mandatory-exercise-02-alice-1  | Alice Won!
 sec-mandatory-exercise-02-bob-1    | Bob Won!
 sec-mandatory-exercise-02-alice-1  | Bob Won!
 ```
-
 ## Answer to the questions
 Since this is an insecure network and Alice and Bob are paranoid who do not trust anybody, then we want the following security properties:
+
 - **Confidentiality:** We don't want anybody who is not a part of the game to read our messages
+
 - **Authenticity:** We need to be sure that the message actually comes from Alice or Bob
+
 - **Integrity:** We need to be sure that the dice roll is not altered and that the message is the actual message being sent
 
 In order to solve this we use Coin Tossing with hash based commitments, and TLS. 
 
 ### Why do we use TLS?
-We use TLS in order to provide *Confidentiality* and *Authenticity*. 
-It creates confidentiality by doing asymmetric encryption to perform key exchange such that a dolev-yao attacker cannot snif the keys latter being used in a symmetric encryption scheme. 
+We use TLS in order to provide *Confidentiality*, *Authenticity*, and *Integrity*. 
+TLS provides 
 
-TLS also creates authenticity by signing the messages that is being sent over the network. This ensures that we know that the message is in fact from Bob or Alice and that a Man-in-the-middle attack is not happening(unless the attacker has somehow created a signed certificate impersonating Bob or Alice).
+- Confidentiality by using symmetric encryption. This ensures that the message is not sent through the network in clear text
+  
+- Authenticity by signing the message. 
+  
+- Integrity by creating a message authentication code(MAC).
+
+Some of the key reasons to use TLS is that it handles the key exchange by using asymmetric encryption first. This is ensures that an adversary cannot see our keys in clear text. After the key exchange then we can begin to use the symmetric encryption which is faster than asymmetric encryption.
 
 ### Why do we use Coin Tossing with commitments?
 The coin tossing scheme provides us with the ability to generate random values where we know that the other part cannot cheat by only roll a 6 in a 6 sided dice. 
@@ -58,7 +66,9 @@ How can we be sure that the partial roll that they have sent is the actual roll?
 I have created a client/server solution. Alice is the client and Bob is the server. Alice is the one who initiates the game every time. 
 
 For the Dice game we have two operations that Alice and Bob communicates with:
+
 - Commit
+
 - Reveal
 
 When Alice sends a Commit message to Bob, then Bob replies with a Commit.
